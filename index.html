@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-ca-encrypted="1">
+<head>
+  <meta charset="utf-8">
+  <meta name="referrer" content="no-referrer">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-F1tsN8NHNxPiDXBJ+9064b9rs8/jUfF8E7JOdaQ4+Ck='; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
+  <meta name="generator-build-time" content="2026-11-09T09:09:21+08:00">
+  <title>内容收藏夹</title>
+  <style>
+    :root {
+      --bg-app: #f2f1ed;
+      --bg-surface: #fffefa;
+      --bg-subtle: #eeede7;
+      --bg-hover: #eaece5;
+      --bg-active: #e6ece4;
+      --border-light: #dddfd5;
+      --border-subtle: #c6cbbf;
+      --border-focus: #42654f;
+      --text-main: #252c26;
+      --text-muted: #596456;
+      --text-tertiary: #6a7366;
+      --accent: #355d46;
+      --accent-subtle: #e5ebe1;
+      --warn-bg: #f8f0de;
+      --warn-border: #d5c192;
+      --warn-text: #755b25;
+      --info-bg: #f1f2eb;
+      --info-border: #d9ddcf;
+      --info-text: #57624f;
+      --font-ui: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-reading: "Noto Serif CJK SC", "Source Han Serif SC", "Songti SC", "STSong", "SimSun", Georgia, serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { font: 15px/1.6 var(--font-ui); color: var(--text-main); background: var(--bg-app); height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; -webkit-font-smoothing: antialiased; }
+    button, input, select { font: inherit; }
+    button, select { cursor: pointer; }
+    button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible, [tabindex="0"]:focus-visible, summary:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 4px; }
+    button { color: inherit; }
+    a { color: var(--accent); text-underline-offset: 4px; }
+    ::selection { background: #dce6d6; color: #21362a; }
+    [hidden] { display: none !important; }
+    .top-header { min-height: 76px; padding: 14px 32px; flex-shrink: 0; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand-title { display: flex; align-items: center; gap: 14px; }
+    .brand-mark { width: 33px; height: 37px; border: 1px solid var(--accent); border-radius: 3px 8px 8px 3px; position: relative; display: block; }
+    .brand-mark::before { content: ""; position: absolute; top: 0; bottom: 0; left: 6px; border-left: 1px solid var(--accent); }
+    .brand-mark::after { content: ""; position: absolute; width: 12px; height: 1px; top: 12px; left: 13px; background: var(--accent); box-shadow: 0 6px var(--accent); }
+    .brand-name { font-size: 20px; letter-spacing: .05em; font-weight: 650; display: block; }
+    .brand-subtitle { display: block; font-size: 10px; letter-spacing: .18em; color: var(--text-muted); margin-top: 1px; }
+    .header-info { display: flex; align-items: center; gap: 18px; font-size: 12px; color: var(--text-muted); }
+    .brand-stats { font-variant-numeric: tabular-nums; }
+    .header-hint { border-left: 1px solid var(--border-light); padding-left: 18px; }
+    .app-layout { flex: 1; min-height: 0; display: flex; overflow: hidden; position: relative; }
+    .sidebar { flex: 0 0 clamp(350px, 31vw, 440px); min-width: 0; height: 100%; display: flex; flex-direction: column; border-right: 1px solid var(--border-light); }
+    .sidebar-controls { padding: 26px 24px 0; flex-shrink: 0; }
+    .browse-heading { margin: 0 0 16px; display: flex; align-items: baseline; justify-content: space-between; }
+    .browse-heading h2 { margin: 0; font-size: 17px; font-weight: 600; }
+    .browse-heading span { font-size: 11px; color: var(--text-muted); }
+    .search-wrapper { position: relative; margin-bottom: 17px; }
+    .search-input { width: 100%; min-height: 44px; height: 46px; border: 1px solid var(--border-subtle); border-radius: 7px; background: var(--bg-surface); padding: 0 46px 0 38px; font-size: 14px; color: var(--text-main); }
+    .search-input::placeholder { color: var(--text-tertiary); }
+    .search-input:focus { border-color: var(--accent); }
+    .search-icon { position: absolute; top: 14px; left: 14px; width: 14px; height: 14px; border: 1.5px solid var(--text-muted); border-radius: 50%; pointer-events: none; }
+    .search-icon::after { content: ""; position: absolute; width: 6px; height: 1px; background: var(--text-muted); transform: rotate(45deg); right: -5px; bottom: -3px; }
+    .search-clear { display: none; position: absolute; right: 1px; top: 1px; min-height: 44px; width: 44px; border: 0; background: transparent; align-items: center; justify-content: center; color: var(--text-muted); font-size: 19px; }
+    .collection-tabs { display: flex; border-bottom: 1px solid var(--border-light); gap: 22px; margin-bottom: 16px; }
+    .tab-btn { min-height: 44px; padding: 0 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: transparent; font-size: 14px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .tab-btn.active { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .tab-badge { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
+    .filter-row { display: flex; gap: 10px; }
+    .filter-select { flex: 1; min-width: 0; min-height: 44px; height: 44px; border: 1px solid var(--border-light); border-radius: 5px; padding: 0 8px; background: transparent; color: var(--text-muted); font-size: 12px; }
+    .sidebar-status { min-height: 44px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted); gap: 12px; }
+    .reset-link { background: transparent; border: 0; min-height: 44px; padding: 0; color: var(--accent); font-size: 12px; }
+    .article-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 24px; scrollbar-width: thin; scrollbar-color: #bfc5b8 transparent; }
+    .article-card { flex-shrink: 0; position: relative; padding: 20px 14px; min-height: 44px; border: 1px solid transparent; border-bottom-color: var(--border-light); border-radius: 0; cursor: pointer; }
+    .article-card:hover { background: #eceee6; }
+    .article-card.active { background: var(--bg-active); border-color: #d6dece; border-radius: 7px; }
+    .card-kicker { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; font-size: 11px; color: var(--text-muted); }
+    .card-category { font-weight: 500; }
+    .card-title { margin: 0 0 10px; font-size: 17px; font-weight: 550; line-height: 1.65; letter-spacing: 0; overflow-wrap: anywhere; text-wrap: pretty; }
+    .card-summary { color: var(--text-muted); font-size: 14px; line-height: 1.75; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0 0 12px; }
+    .card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-size: 11px; color: var(--text-muted); }
+    .meta-source { font-weight: 500; }
+    .meta-separator { color: #858e7d; }
+    .badge { font-size: 11px; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+    .badge-manual { color: var(--accent); }
+    .badge-auto, .badge-unlabeled { color: var(--text-muted); }
+    .badge-partial, .badge-warning { color: var(--warn-text); font-size: 11px; }
+    .reader-pane { flex: 1; min-width: 0; height: 100%; overflow-y: auto; background: var(--bg-surface); scrollbar-width: thin; scrollbar-color: #c4c9bc transparent; }
+    .reader-toolbar { position: sticky; top: 0; z-index: 3; min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 38px; border-bottom: 1px solid var(--border-light); background: var(--bg-surface); }
+    .reader-eyebrow { color: var(--text-muted); font-size: 11px; letter-spacing: .08em; }
+    .reader-actions { display: flex; align-items: center; gap: 12px; }
+    .reading-button { min-height: 44px; padding: 0 12px; background: transparent; border: 1px solid var(--border-light); border-radius: 5px; color: var(--text-muted); font-size: 12px; }
+    .reading-button:hover { color: var(--accent); border-color: var(--border-subtle); }
+    .reader-container { max-width: 816px; margin: 0 auto; padding: 34px 48px 90px; }
+    .article-header { padding-bottom: 18px; border-bottom: 1px solid var(--border-light); margin-bottom: 22px; }
+    .article-kicker { display: flex; align-items: center; gap: 12px; color: var(--accent); font-size: 12px; margin-bottom: 17px; }
+    .article-title { font-size: clamp(28px, 2.3vw, 34px); line-height: 1.48; font-weight: 650; letter-spacing: -.025em; margin: 0 0 16px; overflow-wrap: anywhere; text-wrap: pretty; }
+    .article-original-title { font: 16px/1.65 Georgia, var(--font-reading); color: var(--text-muted); margin-bottom: 23px; }
+    .article-meta-bar { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; color: var(--text-muted); font-size: 12px; line-height: 1.7; }
+    .meta-chip { display: inline-flex; gap: 6px; align-items: center; }
+    .meta-chip strong { font-weight: 500; }
+    .btn-external { display: inline-flex; align-items: center; min-height: 44px; font-size: 12px; font-weight: 500; text-decoration: none; margin-left: auto; }
+    .summary-callout { padding: 0 0 20px; margin: 0 0 22px; border: 0; border-bottom: 1px solid var(--border-light); background: transparent; }
+    .summary-callout-title { color: var(--accent); font-size: 12px; font-weight: 600; letter-spacing: .12em; margin-bottom: 13px; }
+    .summary-callout-text { font-size: 16px; line-height: 1.8; color: #46523f; }
+    .article-tags { display: flex; flex-wrap: wrap; gap: 7px 16px; margin: 0 0 28px; font-size: 11px; color: var(--text-muted); }
+    .tag-pill { border: 0; background: transparent; color: var(--text-muted); }
+    .tag-pill::before { content: "#"; margin-right: 3px; color: #9aa28e; }
+    .alert-box { overflow-wrap: anywhere; padding: 13px 16px; border: 1px solid var(--info-border); border-radius: 5px; font-size: 12px; line-height: 1.8; margin: 0 0 22px; color: var(--info-text); background: var(--info-bg); }
+    .alert-warning { background: var(--warn-bg); border-color: var(--warn-border); color: var(--warn-text); }
+    .archive-notes { margin: 0 0 24px; border-bottom: 1px solid var(--border-light); color: var(--text-muted); font-size: 12px; }
+    .archive-notes summary { min-height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; list-style: none; }
+    .archive-notes summary::-webkit-details-marker { display: none; }
+    .archive-notes summary::after { content: "+"; font-size: 18px; }
+    .archive-notes[open] summary::after { content: "−"; }
+    .archive-notes .alert-box { margin: 4px 0 16px; }
+    .article-footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border-light); }
+    .reading-section-label { color: var(--text-tertiary); font: 11px/1.6 var(--font-ui); letter-spacing: .15em; margin: 0 0 22px; }
+    .article-body { font-family: var(--font-ui); font-size: 18px; line-height: 1.9; letter-spacing: .015em; color: #30382d; overflow-wrap: anywhere; }
+    .article-body h1, .article-body h2, .article-body h3, .article-body h4, .article-body h5, .article-body h6 { font-family: var(--font-ui); font-weight: 600; color: var(--text-main); line-height: 1.6; margin: 2em 0 .8em; letter-spacing: 0; }
+    .article-body h1 { font-size: 28px; }
+    .article-body h2 { font-size: 25px; border: 0; padding: 0; }
+    .article-body h3 { font-size: 21px; }
+    .article-body h4, .article-body h5, .article-body h6 { font-size: 18px; }
+    .article-body p { margin: 0 0 1.15em; }
+    .article-body strong { font-weight: 650; color: #252f23; }
+    .article-body a { color: var(--accent); text-decoration-thickness: 1px; }
+    .article-body blockquote { margin: 1.6em 0; padding: 2px 0 2px 22px; border-left: 2px solid #b4c2aa; color: var(--text-muted); background: transparent; }
+    .article-body blockquote p { margin: .3em 0; }
+    .article-body ul, .article-body ol { margin: 0 0 1.5em; padding-left: 1.6em; }
+    .article-body li { margin: .5em 0; padding-left: .25em; }
+    .article-body li p { margin: .5em 0; }
+    .article-body hr { border: 0; width: 60px; border-top: 1px solid var(--border-subtle); margin: 2.6em auto; }
+    .article-body table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font: 13px/1.8 var(--font-ui); margin: 24px 0 32px; }
+    .article-body th, .article-body td { border: 1px solid var(--border-light); padding: 11px 14px; text-align: left; min-width: 90px; }
+    .article-body th { background: var(--bg-subtle); font-weight: 600; }
+    .article-body code { font: .83em/1.7 ui-monospace, "SFMono-Regular", Consolas, monospace; background: #eeefe8; padding: .15em .35em; border-radius: 3px; letter-spacing: 0; }
+    .article-body pre { font-size: 14px; line-height: 1.8; background: #f0f1eb; border: 1px solid var(--border-light); border-radius: 6px; padding: 20px 22px; overflow-x: auto; margin: 24px 0 32px; }
+    .article-body pre code { font-size: 13px; background: transparent; padding: 0; border: 0; }
+    .article-body img { display: block; max-width: 100%; height: auto; margin: 30px auto; border-radius: 3px; }
+    .article-body > blockquote:first-child { font: 12px/1.8 var(--font-ui); border: 0; padding: 0; margin: 0 0 28px; }
+    .ext-img-link, .img-missing, .img-forbidden, .img-unsafe { display: inline-block; font: 12px/1.8 var(--font-ui); color: var(--text-muted); padding: 8px 0; }
+    .disabled-link { color: var(--text-muted); text-decoration: line-through; }
+    .empty-state { padding: 60px 20px; text-align: left; color: var(--text-muted); }
+    .empty-title { font-size: 21px; font-weight: 500; margin-bottom: 12px; }
+    .empty-desc { font-size: 14px; line-height: 1.9; max-width: 320px; margin-bottom: 24px; }
+    .btn-reset { min-height: 44px; padding: 0 16px; border: 1px solid var(--border-subtle); background: transparent; border-radius: 5px; }
+    /* Optional encrypted-site chrome. Offline output never creates these nodes. */
+    .ca-unlock { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg-app); }
+    .ca-unlock-card { width: min(430px, 100%); padding: 30px 28px; background: var(--bg-surface); border: 1px solid var(--border-light); border-radius: 10px; }
+    .ca-unlock-title { margin: 0 0 8px; font-size: 22px; font-weight: 650; }
+    .ca-unlock-desc { margin: 0 0 22px; color: var(--text-muted); font-size: 13px; line-height: 1.8; }
+    .ca-unlock-label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 12px; }
+    .ca-unlock-input { width: 100%; min-height: 46px; border: 1px solid var(--border-subtle); border-radius: 7px; background: var(--bg-surface); padding: 0 14px; font-size: 15px; color: var(--text-main); }
+    .ca-unlock-input:focus { border-color: var(--accent); }
+    .ca-unlock-submit { width: 100%; min-height: 46px; margin-top: 14px; border: 1px solid var(--accent); border-radius: 7px; background: var(--accent); color: #fffefa; font-size: 14px; font-weight: 600; }
+    .ca-unlock-submit[disabled] { opacity: .55; cursor: default; }
+    .ca-error { margin: 14px 0 0; color: #8a3b2c; font-size: 12px; line-height: 1.7; }
+    .ca-body-pending { color: var(--text-muted); font-size: 13px; }
+    .article-body img[data-ca-src]:not([src]) { display: none; }
+    .mobile-back-btn { display: none; min-height: 44px; border: 0; background: transparent; color: var(--accent); padding: 0; font-size: 13px; }
+    body.focus-reading .sidebar { display: none; }
+    body.focus-reading .reader-container { max-width: 816px; }
+    @media (max-width: 1100px) and (min-width: 821px) {
+      .sidebar { flex-basis: 340px; }
+      .reader-container { padding: 32px 30px 80px; }
+      .reader-toolbar { padding: 8px 30px; }
+      .article-title { font-size: 28px; }
+      .article-body { font-size: 17px; }
+    }
+    @media (max-width: 820px) {
+      .top-header { padding: 12px 20px; min-height: 68px; gap: 10px; }
+      .brand-mark { width: 27px; height: 31px; }
+      .brand-name { font-size: 18px; }
+      .brand-subtitle { font-size: 9px; }
+      .header-hint { display: none; }
+      .sidebar { flex: 1; width: 100%; max-width: 100%; border: 0; }
+      .sidebar-controls { padding: 22px 22px 0; }
+      .article-list { padding: 0 10px 24px; }
+      .article-card { padding: 21px 14px; }
+      .card-title { font-size: 18px; }
+      .card-summary { font-size: 14px; }
+      .collection-tabs { gap: 26px; }
+      .reader-pane { display: none; position: absolute; inset: 0; width: 100%; height: 100%; }
+      .app-layout.mobile-reading .sidebar { display: none; }
+      .app-layout.mobile-reading .reader-pane { display: block; }
+      .reader-toolbar { min-height: 58px; padding: 7px 22px; }
+      .mobile-back-btn { display: inline-flex; align-items: center; }
+      .reader-eyebrow, #focus-reading-btn { display: none; }
+      .reader-container { padding: 30px 24px 70px; }
+      .article-title { font-size: 28px; line-height: 1.5; }
+      .article-original-title { font-size: 15px; }
+      .article-body { font-size: 17px; line-height: 1.95; }
+      .summary-callout-text { font-size: 16px; }
+      .article-body h2 { font-size: 23px; }
+      .article-meta-bar { gap: 8px 14px; }
+      body.focus-reading .sidebar { display: flex; }
+      body.focus-reading .app-layout.mobile-reading .sidebar { display: none; }
+    }
+    @media (max-width: 370px) {
+      .collection-tabs { gap: 15px; }
+      .tab-btn { font-size: 13px; }
+      .reader-container { padding-left: 20px; padding-right: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+    @media print { body { height: auto; overflow: visible; background: white; } .top-header, .sidebar, .reader-toolbar { display: none !important; } .app-layout, .reader-pane { display: block !important; height: auto; overflow: visible; } .reader-container { max-width: none; padding: 0; } .archive-notes { display: none; } }
+
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="top-header">
+    <div class="brand-title">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span><span class="brand-name">内容收藏夹</span><span class="brand-subtitle">CONTENT ARCHIVE / 私人阅读室</span></span>
+    </div>
+    <div class="header-info"><span class="brand-stats" id="total-count-badge"></span><span class="header-hint" title="生成于 2026-11-09T09:09:21+08:00">本地保存 · 离线可读</span></div>
+  </header>
+
+  <!-- Split View Layout -->
+  <main class="app-layout" id="app-layout">
+    <!-- Left Sidebar: Controls & List -->
+    <aside class="sidebar">
+      <div class="sidebar-controls">
+        <div class="browse-heading"><h2>浏览藏文</h2><span>最近归档优先</span></div>
+        <!-- Search -->
+        <div class="search-wrapper">
+          <span class="search-icon" aria-hidden="true"></span>
+          <input
+            type="search"
+            id="search-input"
+            class="search-input"
+            placeholder="搜索标题、摘要与全文"
+            autocomplete="off"
+            aria-label="搜索文章"
+          >
+          <button type="button" id="search-clear-btn" class="search-clear" aria-label="清除搜索">✕</button>
+        </div>
+
+        <!-- Collection Tabs -->
+        <div class="collection-tabs" role="tablist">
+          <button type="button" class="tab-btn active" data-tab="all" role="tab" id="tab-all" aria-selected="true">
+            全部 <span class="tab-badge" id="count-all">0</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="manual" role="tab" id="tab-manual" aria-selected="false">
+            手动收藏 <span class="tab-badge" id="count-manual">0</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="auto" role="tab" id="tab-auto" aria-selected="false">
+            自动采集 <span class="tab-badge" id="count-auto">0</span>
+          </button>
+        </div>
+
+        <!-- Category & Publisher Dropdowns -->
+        <div class="filter-row">
+          <select id="category-filter" class="filter-select" aria-label="按分类筛选">
+            <option value="all">全部分类</option>
+          </select>
+          <select id="source-filter" class="filter-select" aria-label="按发布方筛选">
+            <option value="all">全部发布方</option>
+          </select>
+        </div>
+
+        <!-- Status Summary -->
+        <div class="sidebar-status">
+          <span id="filtered-status">显示 0 篇</span>
+          <button type="button" id="reset-filters-btn" class="reset-link" style="display: none;">清除筛选</button>
+        </div>
+      </div>
+
+      <!-- Scrollable List -->
+      <div class="article-list" id="article-list" role="feed"></div>
+    </aside>
+
+    <!-- Right Reader Pane -->
+    <section class="reader-pane" id="reader-pane">
+      <div class="reader-toolbar">
+        <span class="reader-eyebrow">READING ROOM / 静心阅读</span>
+        <button type="button" id="mobile-back-btn" class="mobile-back-btn" aria-label="返回文章列表">← 返回藏文</button>
+        <div class="reader-actions"><button type="button" id="focus-reading-btn" class="reading-button" aria-pressed="false">专注阅读</button></div>
+      </div>
+      <div class="reader-container" id="reader-container">
+        <div id="reader-content">
+          <div class="empty-state">
+            <div class="empty-title">请选择一篇文章阅读</div>
+            <div class="empty-desc">在左侧列表中点击任意文章即可开始阅读</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Embedded JSON Data -->
+  <script id="archive-data" type="application/json">
+[]
+  </script>
+  <script id="labels-data" type="application/json">
+{}
+  </script>
+
+  <!-- Offline Application Logic -->
+  <script>
+    (function() {
+      const encryptedMode = document.documentElement.getAttribute('data-ca-encrypted') === '1';
+      // Parse embedded data (offline build). Encrypted entries embed [] and are
+      // populated only after the browser unlock hook calls CAContentArchive.boot().
+      const dataEl = document.getElementById('archive-data');
+      const labelsEl = document.getElementById('labels-data');
+      let articles = [];
+      let labels = {};
+      let renderEpoch = 0;
+
+      function readEmbeddedData() {
+        try {
+          articles = JSON.parse((dataEl && dataEl.textContent) || '[]');
+        } catch (e) {
+          console.error('Failed to parse archive data:', e);
+          articles = [];
+        }
+
+        try {
+          labels = JSON.parse((labelsEl && labelsEl.textContent) || '{}');
+        } catch (e) {
+          console.error('Failed to parse labels data:', e);
+          labels = {};
+        }
+      }
+
+      if (!encryptedMode) readEmbeddedData();
+
+      // State
+      const state = {
+        tab: 'all',
+        category: 'all',
+        source: 'all',
+        query: '',
+        selectedId: null,
+      };
+
+      // Elements
+      const appLayout = document.getElementById('app-layout');
+      const searchInput = document.getElementById('search-input');
+      const searchClearBtn = document.getElementById('search-clear-btn');
+      const categoryFilter = document.getElementById('category-filter');
+      const sourceFilter = document.getElementById('source-filter');
+      const resetFiltersBtn = document.getElementById('reset-filters-btn');
+      const filteredStatus = document.getElementById('filtered-status');
+      const articleListEl = document.getElementById('article-list');
+      const readerContentEl = document.getElementById('reader-content');
+      const mobileBackBtn = document.getElementById('mobile-back-btn');
+      const tabAll = document.getElementById('tab-all');
+      const tabManual = document.getElementById('tab-manual');
+      const tabAuto = document.getElementById('tab-auto');
+      const totalCountBadge = document.getElementById('total-count-badge');
+
+      // Helper: Escape HTML
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      // Helper: Validate external http(s) URL
+      function isValidHttpUrl(url) {
+        if (!url || typeof url !== 'string') return false;
+        if (/[\x00-\x1f\x7f]/.test(url)) return false;
+        try {
+          const u = new URL(url);
+          return (u.protocol === 'http:' || u.protocol === 'https:') && Boolean(u.hostname);
+        } catch (e) {
+          return false;
+        }
+      }
+
+      // Initialize Collection Counts
+      function updateCollectionCounts() {
+        const total = articles.length;
+        const manual = articles.filter(a => a.collection === 'manual').length;
+        const auto = articles.filter(a => a.collection === 'auto').length;
+
+        document.getElementById('count-all').textContent = total;
+        document.getElementById('count-manual').textContent = manual;
+        document.getElementById('count-auto').textContent = auto;
+        if (totalCountBadge) {
+          totalCountBadge.textContent = '共 ' + total + ' 篇';
+        }
+      }
+
+      // Initialize Filter Options
+      function initFilterOptions() {
+        // Category options
+        const catMap = new Map();
+        for (const a of articles) {
+          const cat = a.category || 'other';
+          catMap.set(cat, (catMap.get(cat) || 0) + 1);
+        }
+        for (const [cat, count] of catMap.entries()) {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          const label = labels[cat] || cat;
+          opt.textContent = `${label} (${count})`;
+          categoryFilter.appendChild(opt);
+        }
+
+        // Source options
+        const srcMap = new Map();
+        for (const a of articles) {
+          const src = a.source || '其他';
+          srcMap.set(src, (srcMap.get(src) || 0) + 1);
+        }
+        const sortedSources = Array.from(srcMap.entries()).sort((a, b) => b[1] - a[1]);
+        for (const [src, count] of sortedSources) {
+          const opt = document.createElement('option');
+          opt.value = src;
+          opt.textContent = `${src} (${count})`;
+          sourceFilter.appendChild(opt);
+        }
+      }
+
+      // Filter articles based on state
+      function filterArticles() {
+        const q = state.query.trim().toLowerCase();
+        return articles.filter(a => {
+          if (state.tab === 'manual' && a.collection !== 'manual') return false;
+          if (state.tab === 'auto' && a.collection !== 'auto') return false;
+          if (state.category !== 'all' && a.category !== state.category) return false;
+          if (state.source !== 'all' && a.source !== state.source) return false;
+          if (q && !(a.search_text && a.search_text.includes(q))) return false;
+          return true;
+        });
+      }
+
+      // Render the article list
+      function renderList() {
+        const filtered = filterArticles();
+        const hasFilters = state.tab !== 'all' || state.category !== 'all' || state.source !== 'all' || state.query.trim() !== '';
+        resetFiltersBtn.style.display = hasFilters ? 'inline-block' : 'none';
+        filteredStatus.textContent = `显示 ${filtered.length} / ${articles.length} 篇`;
+
+        if (filtered.length === 0) {
+          articleListEl.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-title">没有找到匹配的文章</div>
+              <div class="empty-desc">请尝试调整搜索关键词或重置筛选</div>
+              <button type="button" class="btn-reset" id="empty-reset-btn">重置筛选条件</button>
+            </div>
+          `;
+          const emptyBtn = document.getElementById('empty-reset-btn');
+          if (emptyBtn) emptyBtn.addEventListener('click', resetAllFilters);
+          renderReader(null);
+          return;
+        }
+
+        // Render Cards
+        const cardsHtml = filtered.map(a => {
+          const isSelected = a.id === state.selectedId;
+          let colBadge = '';
+          if (a.collection === 'manual') {
+            colBadge = '<span class="badge badge-manual">手动</span>';
+          } else if (a.collection === 'auto') {
+            colBadge = '<span class="badge badge-auto">自动</span>';
+          } else {
+            colBadge = '<span class="badge badge-unlabeled">未标记</span>';
+          }
+
+          const partialBadge = a.status === 'partial' ? '<span class="badge-mini badge-partial">部分</span>' : '';
+          const dateStr = a.published_unknown ? '日期未知' : (a.published || '日期未知');
+          const catLabel = a.category_label || labels[a.category] || a.category || '';
+
+          return `
+            <div
+              class="article-card ${isSelected ? 'active' : ''}"
+              data-id="${escapeHtml(a.id)}"
+              role="button"
+              tabindex="0"
+              aria-pressed="${isSelected}"
+            >
+              <div class="card-kicker"><span class="card-category">${escapeHtml(catLabel)}</span><time title="发布日期">发布 ${escapeHtml(dateStr)}</time></div>
+              <h3 class="card-title">${escapeHtml(a.title)}</h3>
+              ${a.summary ? `<p class="card-summary">${escapeHtml(a.summary)}</p>` : ''}
+              <div class="card-meta">
+                <span class="meta-source">${escapeHtml(a.source)}</span><span class="meta-separator" aria-hidden="true">·</span>${colBadge}${partialBadge}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        articleListEl.innerHTML = cardsHtml;
+
+        // Attach Card Click Events
+        const cards = articleListEl.querySelectorAll('.article-card');
+        cards.forEach(card => {
+          const id = card.getAttribute('data-id');
+          card.addEventListener('click', () => selectArticle(id));
+          card.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              selectArticle(id);
+            }
+          });
+        });
+
+        // Ensure active selection
+        const stillInFiltered = filtered.some(a => a.id === state.selectedId);
+        if (!stillInFiltered) {
+          if (window.innerWidth > 820 && filtered.length > 0) {
+            selectArticle(filtered[0].id, false);
+          } else {
+            renderReader(null);
+          }
+        }
+      }
+
+      // Render Selected Article in Reader
+      function renderReader(id) {
+        renderEpoch += 1;
+        const epoch = renderEpoch;
+        if (!id) {
+          readerContentEl.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-title">请选择一篇文章阅读</div>
+              <div class="empty-desc">在左侧列表中点击任意文章即可开始阅读</div>
+            </div>
+          `;
+          return;
+        }
+
+        const article = articles.find(a => a.id === id);
+        if (!article) return;
+
+        // Badges
+        let colBadge = '';
+        if (article.collection === 'manual') {
+          colBadge = '<span class="badge badge-manual">手动收藏</span>';
+        } else if (article.collection === 'auto') {
+          colBadge = '<span class="badge badge-auto">自动归档</span>';
+        } else {
+          colBadge = '<span class="badge badge-unlabeled">未标记</span>';
+        }
+
+        const catLabel = article.category_label || labels[article.category] || article.category || '';
+        const origTitleHtml = (article.original_title && article.original_title !== article.title)
+          ? `<div class="article-original-title">${escapeHtml(article.original_title)}</div>`
+          : '';
+
+        // Alerts / Warnings
+        let alertsHtml = '';
+        if (article.status === 'partial') {
+          alertsHtml += `<div class="alert-box alert-warning">⚠️ <strong>部分收录</strong>：本文章归档时仅获取到部分内容。${article.content_note ? '（' + escapeHtml(article.content_note) + '）' : ''}</div>`;
+        }
+        if (article.published_unknown) {
+          alertsHtml += `<div class="alert-box alert-warning">⚠️ <strong>日期未知</strong>：原始发布日期无法准确解析。</div>`;
+        }
+        const notes = [];
+        if (article.image_note) notes.push(`<p><strong>图片说明</strong>：${escapeHtml(article.image_note)}</p>`);
+        if (article.content_note && article.status !== 'partial') notes.push(`<p><strong>内容说明</strong>：${escapeHtml(article.content_note)}</p>`);
+        if (article.archived) notes.push(`<p>归档时间：${escapeHtml(article.archived)}</p>`);
+        const notesHtml = notes.length ? `<details class="archive-notes"><summary>归档与图片说明${article.image_note ? ' · 含图片保存提示' : ''}</summary><div class="alert-box alert-info">${notes.join('')}</div></details>` : '';
+
+        // External Link Button
+        const extLinkHtml = (article.url && isValidHttpUrl(article.url))
+          ? `<a href="${escapeHtml(article.url)}" class="btn-external" target="_blank" rel="noopener noreferrer">查看原文 ↗</a>`
+          : '';
+
+        // Summary Callout Box
+        let summaryHtml = '';
+        if (article.summary) {
+          summaryHtml = `
+            <div class="summary-callout">
+              <div class="summary-callout-title">内容提要</div>
+              <div class="summary-callout-text">${escapeHtml(article.summary)}</div>
+            </div>
+          `;
+        }
+
+        // Tags
+        let tagsHtml = '';
+        if (article.tags && article.tags.length > 0) {
+          const chips = article.tags.map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('');
+          tagsHtml = `<div class="article-tags" aria-label="文章标签">${chips}</div>`;
+        }
+
+        // Header Meta Row
+        const metaDateStr = article.published_unknown ? '⚠️ 日期未知' : escapeHtml(article.published || '未知');
+
+        readerContentEl.innerHTML = `
+          <article class="reader-article">
+            <header class="article-header">
+              <div class="article-kicker">${escapeHtml(catLabel)}<span aria-hidden="true">/</span>${colBadge}</div>
+              <h1 class="article-title">${escapeHtml(article.title)}</h1>
+              ${origTitleHtml}
+              <div class="article-meta-bar">
+                <span class="meta-chip"><strong>${escapeHtml(article.source || '未知')}</strong></span>
+                <span class="meta-chip">发布于 ${metaDateStr}</span>
+                ${extLinkHtml}
+              </div>
+            </header>
+
+            ${alertsHtml}
+            ${summaryHtml}
+            <div class="reading-section-label">原文 / FULL TEXT</div>
+            <div class="article-body">
+              ${article.body_html || ''}
+            </div>
+            <footer class="article-footer">${tagsHtml}${notesHtml}</footer>
+          </article>
+        `;
+
+        // Move the archive's duplicated source line into its provenance details.
+        const sourceLine = readerContentEl.querySelector('.article-body > blockquote:first-child');
+        const noteBody = readerContentEl.querySelector('.archive-notes .alert-box');
+        if (sourceLine && noteBody && /^来源：/.test(sourceLine.textContent.trim()) && sourceLine.textContent.includes('发布：')) {
+          noteBody.prepend(sourceLine);
+        }
+        // Optional encrypted/async body loader. Offline output has no hook and
+        // keeps using the embedded body_html synchronously.
+        const bodyEl = readerContentEl.querySelector('.article-body');
+        if (bodyEl && window.CA_HOOKS && typeof window.CA_HOOKS.mountBody === 'function') {
+          try {
+            window.CA_HOOKS.mountBody(article, bodyEl, epoch);
+          } catch (e) {
+            console.error('Body loader failed:', e);
+          }
+        }
+        // Scroll reader to top
+        document.getElementById('reader-pane').scrollTop = 0;
+      }
+
+      // Select an article
+      function selectArticle(id, switchMobile = true) {
+        state.selectedId = id;
+
+        // Highlight in list
+        const cards = articleListEl.querySelectorAll('.article-card');
+        cards.forEach(card => {
+          const cardId = card.getAttribute('data-id');
+          if (cardId === id) {
+            card.classList.add('active');
+            card.setAttribute('aria-pressed', 'true');
+          } else {
+            card.classList.remove('active');
+            card.setAttribute('aria-pressed', 'false');
+          }
+        });
+
+        renderReader(id);
+
+        if (id) {
+          try {
+            history.replaceState(null, '', '#' + encodeURIComponent(id));
+          } catch (e) {}
+        }
+
+        // On mobile, switch to reader view
+        if (switchMobile && window.innerWidth <= 820 && id) {
+          appLayout.classList.add('mobile-reading');
+        }
+      }
+
+      // Reset All Filters
+      function resetAllFilters() {
+        state.tab = 'all';
+        state.category = 'all';
+        state.source = 'all';
+        state.query = '';
+        searchInput.value = '';
+        searchClearBtn.style.display = 'none';
+        categoryFilter.value = 'all';
+        sourceFilter.value = 'all';
+
+        // Update tabs active class and aria-selected
+        tabs.forEach(t => {
+          t.el.classList.remove('active');
+          t.el.setAttribute('aria-selected', 'false');
+        });
+        tabAll.classList.add('active');
+        tabAll.setAttribute('aria-selected', 'true');
+
+        renderList();
+      }
+
+      // Event Listeners: Search
+      searchInput.addEventListener('input', () => {
+        state.query = searchInput.value;
+        searchClearBtn.style.display = state.query ? 'flex' : 'none';
+        renderList();
+      });
+
+      searchClearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        state.query = '';
+        searchClearBtn.style.display = 'none';
+        searchInput.focus();
+        renderList();
+      });
+
+      // Collection Tabs
+      const tabs = [
+        { el: tabAll, val: 'all' },
+        { el: tabManual, val: 'manual' },
+        { el: tabAuto, val: 'auto' },
+      ];
+      tabs.forEach(({ el, val }) => {
+        el.addEventListener('click', () => {
+          tabs.forEach(t => {
+            t.el.classList.remove('active');
+            t.el.setAttribute('aria-selected', 'false');
+          });
+          el.classList.add('active');
+          el.setAttribute('aria-selected', 'true');
+          state.tab = val;
+          renderList();
+        });
+      });
+
+      // Category and Source
+      categoryFilter.addEventListener('change', () => {
+        state.category = categoryFilter.value;
+        renderList();
+      });
+
+      sourceFilter.addEventListener('change', () => {
+        state.source = sourceFilter.value;
+        renderList();
+      });
+
+      resetFiltersBtn.addEventListener('click', resetAllFilters);
+
+      const focusButton = document.getElementById('focus-reading-btn');
+      function setFocusReading(enabled) {
+        if (enabled && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        document.body.classList.toggle('focus-reading', enabled);
+        focusButton.setAttribute('aria-pressed', String(enabled));
+        focusButton.textContent = enabled ? '返回浏览' : '专注阅读';
+      }
+      focusButton.addEventListener('click', () => setFocusReading(!document.body.classList.contains('focus-reading')));
+
+      // Mobile Back Button
+      mobileBackBtn.addEventListener('click', () => {
+        setFocusReading(false);
+        appLayout.classList.remove('mobile-reading');
+      });
+
+      // Keyboard Shortcuts
+      window.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+          e.preventDefault();
+          setFocusReading(false);
+          appLayout.classList.remove('mobile-reading');
+          searchInput.focus();
+        } else if (e.key === 'Escape') {
+          if (document.activeElement === searchInput) {
+            searchInput.blur();
+          } else if (document.body.classList.contains('focus-reading')) {
+            setFocusReading(false);
+          } else if (appLayout.classList.contains('mobile-reading')) {
+            appLayout.classList.remove('mobile-reading');
+          }
+        }
+      });
+
+      // Hash change listener
+      window.addEventListener('hashchange', () => {
+        let hash = window.location.hash;
+        if (hash.startsWith('#')) {
+          hash = hash.slice(1);
+        }
+        if (hash) {
+          let decoded = null;
+          try {
+            decoded = decodeURIComponent(hash);
+          } catch (e) {
+            decoded = null;
+          }
+          if (decoded && decoded !== state.selectedId && articles.some(a => a.id === decoded)) {
+            selectArticle(decoded, true);
+          }
+        }
+      });
+
+      function resetUiState() {
+        state.tab = 'all';
+        state.category = 'all';
+        state.source = 'all';
+        state.query = '';
+        state.selectedId = null;
+        searchInput.value = '';
+        searchClearBtn.style.display = 'none';
+        while (categoryFilter.options.length > 1) categoryFilter.remove(1);
+        while (sourceFilter.options.length > 1) sourceFilter.remove(1);
+        categoryFilter.value = 'all';
+        sourceFilter.value = 'all';
+        tabs.forEach(t => {
+          t.el.classList.remove('active');
+          t.el.setAttribute('aria-selected', 'false');
+        });
+        tabAll.classList.add('active');
+        tabAll.setAttribute('aria-selected', 'true');
+        setFocusReading(false);
+        appLayout.classList.remove('mobile-reading');
+      }
+
+      function boot(nextArticles, nextLabels) {
+        renderEpoch += 1;
+        articles = Array.isArray(nextArticles) ? nextArticles : [];
+        labels = (nextLabels && typeof nextLabels === 'object') ? nextLabels : {};
+        resetUiState();
+        updateCollectionCounts();
+        initFilterOptions();
+
+        // Check initial hash (ids are opaque in encrypted mode).
+        let initialId = null;
+        if (window.location.hash) {
+          try {
+            initialId = decodeURIComponent(window.location.hash.slice(1));
+          } catch (e) {
+            initialId = null;
+          }
+        }
+
+        if (initialId && articles.some(a => a.id === initialId)) {
+          state.selectedId = initialId;
+          if (window.innerWidth <= 820) {
+            appLayout.classList.add('mobile-reading');
+          }
+        } else if (articles.length > 0 && window.innerWidth > 820) {
+          state.selectedId = articles[0].id;
+        }
+
+        renderList();
+        if (state.selectedId) {
+          renderReader(state.selectedId);
+        }
+      }
+
+      function shutdown() {
+        renderEpoch += 1;
+        articles = [];
+        labels = {};
+        resetUiState();
+        updateCollectionCounts();
+        articleListEl.innerHTML = '';
+        readerContentEl.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-title">已锁定</div>
+            <div class="empty-desc">输入口令后可继续阅读。</div>
+          </div>
+        `;
+        try {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        } catch (e) {}
+      }
+
+      window.CAContentArchive = {
+        boot: boot,
+        shutdown: shutdown,
+        isEncrypted: encryptedMode,
+        getEpoch: function() { return renderEpoch; },
+      };
+
+      if (!encryptedMode) {
+        // Offline setup: the embedded JSON is the only data source.
+        boot(articles, labels);
+      }
+    })();
+  </script>
+  <script src="reader.js" defer></script>
+</body>
+</html>

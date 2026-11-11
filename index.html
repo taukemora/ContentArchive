@@ -169,7 +169,11 @@
     .ca-unlock-submit[disabled] { opacity: .55; cursor: default; }
     .ca-error { margin: 14px 0 0; color: #8a3b2c; font-size: 12px; line-height: 1.7; }
     .ca-body-pending { color: var(--text-muted); font-size: 13px; }
-    .article-body img[data-ca-src]:not([src]) { display: none; }
+    /* Pending encrypted media keeps a measurable, roughly 16:9 box until the
+       decoded blob fires load (data-ca-ready), so the visible-first scheduler
+       can rank it and assigning a blob src never collapses it to zero height.
+       Offline images always have src and never match this selector. */
+    .article-body img[data-ca-src]:not([data-ca-ready]) { display: block; width: 100%; height: auto; min-height: 120px; aspect-ratio: 16 / 9; background: #eef0e8; border-radius: 3px; }
     .mobile-back-btn { display: none; min-height: 44px; border: 0; background: transparent; color: var(--accent); padding: 0; font-size: 13px; }
     body.focus-reading .sidebar { display: none; }
     body.focus-reading .reader-container { max-width: 816px; }

@@ -8,6 +8,258 @@
 (function () {
   'use strict';
 
+  // -------------------------------------------------------------------------
+  // Media hydration scheduler
+  //
+  // Images are requested visible-first with a small bounded queue, instead of
+  // serially walking the whole article. The factory is dependency-injected so
+  // the exact same code is exercised by tests/reader_media_scheduler.mjs in
+  // Node with a simulated DOM, geometry, and load promises.
+  // -------------------------------------------------------------------------
+  function createMediaScheduler(options) {
+    var opts = options || {};
+    var concurrency = Math.max(1, Math.min(6, opts.concurrency || 3));
+    var prefetchFactor = opts.prefetchFactor == null ? 2 : opts.prefetchFactor;
+    var jobs = opts.jobs || [];
+    var frame = opts.frame || {
+      request: function (fn) { return setTimeout(fn, 16); },
+      cancel: function (id) { clearTimeout(id); },
+    };
+    var active = 0;
+    var stopped = false;
+    var frameId = null;
+    var observer = null;
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
+
+    function activeStill() {
+      if (stopped) return false;
+      if (controller && controller.signal.aborted) return false;
+      return typeof opts.isActive !== 'function' || !!opts.isActive();
+    }
+
+    function viewport() {
+      var rect = opts.viewport ? opts.viewport() : null;
+      if (rect === null) return null; // pane explicitly unmeasurable (hidden)
+      if (!rect || typeof rect.top !== 'number' || typeof rect.bottom !== 'number') {
+        return { top: 0, bottom: opts.fallbackHeight || 0 };
+      }
+      if (!(rect.bottom - rect.top > 0)) {
+        // A hidden pane has no measurable height. Treating it as a zero-height
+        // window would make every node look visible and download the whole
+        // article; pause instead until a resize makes the pane measurable.
+        return null;
+      }
+      return rect;
+    }
+
+    function rankRect(rect, pane, limit) {
+      if (!rect || typeof rect.top !== 'number' || typeof rect.bottom !== 'number') return null;
+      var height = typeof rect.height === 'number' ? rect.height : rect.bottom - rect.top;
+      if (!(height > 0)) return null; // zero-size nodes are never visible
+      if (typeof rect.width === 'number' && !(rect.width > 0)) return null;
+      var rank;
+      var distance;
+      if (rect.bottom >= pane.top && rect.top <= pane.bottom) {
+        rank = 0;
+        distance = rect.top > pane.top ? rect.top - pane.top : 0;
+      } else if (rect.top > pane.bottom) {
+        distance = rect.top - pane.bottom;
+        rank = distance <= limit ? 1 : 3;
+      } else {
+        distance = pane.top - rect.bottom;
+        rank = distance <= limit ? 2 : 3;
+      }
+      if (rank === 3) return null;
+      return { rank: rank, distance: distance };
+    }
+
+    // A job can be mounted at several nodes (the same ciphertext object used by
+    // two images, or by an image and an attachment link). Rank each occurrence
+    // and keep the best; a min-top/max-bottom bounding box would treat two far
+    // apart occurrences as one huge visible element.
+    function bestRank(job, pane, limit) {
+      var measured = opts.measure(job);
+      var rects = Array.isArray(measured) ? measured : (measured ? [measured] : []);
+      var best = null;
+      for (var r = 0; r < rects.length; r += 1) {
+        var ranked = rankRect(rects[r], pane, limit);
+        if (!ranked) continue;
+        if (!best || ranked.rank < best.rank ||
+            (ranked.rank === best.rank && ranked.distance < best.distance)) {
+          best = ranked;
+        }
+      }
+      return best;
+    }
+
+    // Rank: 0 = currently visible, 1 = just below the pane, 2 = just above,
+    // outside the prefetch window = not scheduled at all. The order is
+    // recomputed from live geometry every time a slot frees, so a scroll or a
+    // layout change reshuffles jobs that have not started yet.
+    function candidates() {
+      var pane = viewport();
+      if (!pane) return []; // hidden pane: pause until it is measurable again
+      var paneHeight = Math.max(1, pane.bottom - pane.top);
+      var limit = paneHeight * prefetchFactor;
+      var out = [];
+      for (var i = 0; i < jobs.length; i += 1) {
+        var job = jobs[i];
+        if (job.state !== 'pending') continue;
+        var best = bestRank(job, pane, limit);
+        if (!best) continue;
+        out.push({ job: job, rank: best.rank, distance: best.distance, index: job.index });
+      }
+      out.sort(function (a, b) {
+        if (a.rank !== b.rank) return a.rank - b.rank;
+        if (a.distance !== b.distance) return a.distance - b.distance;
+        return a.index - b.index;
+      });
+      return out;
+    }
+
+    function startJob(job) {
+      job.state = 'active';
+      active += 1;
+      for (var i = 0; i < job.nodes.length; i += 1) {
+        // Native lazy loading would otherwise defer the blob URL we set later.
+        if (job.nodes[i].tagName === 'IMG') job.nodes[i].loading = 'eager';
+      }
+      var promise;
+      try {
+        promise = opts.load(job, controller ? controller.signal : undefined);
+      } catch (e) {
+        active = Math.max(0, active - 1);
+        job.state = 'failed';
+        if (activeStill()) {
+          try { opts.fail(job, e); } catch (ignored) { /* ignore */ }
+        }
+        return; // the caller's pump loop keeps filling the freed slot
+      }
+      Promise.resolve(promise).then(function (url) {
+        active = Math.max(0, active - 1);
+        if (stopped || job.state !== 'active') return;
+        if (!activeStill()) {
+          job.state = 'stale';
+          return;
+        }
+        job.state = 'done';
+        try {
+          opts.apply(job, url);
+        } catch (e) {
+          try { opts.fail(job, e); } catch (ignored) { /* ignore */ }
+        }
+        scheduleRefresh(); // a decoded image can move everything below it
+        pump();
+      }, function (err) {
+        active = Math.max(0, active - 1);
+        if (stopped || job.state !== 'active') return;
+        job.state = 'failed';
+        if (!activeStill()) return;
+        try { opts.fail(job, err); } catch (ignored) { /* ignore */ }
+        pump();
+      });
+    }
+
+    function pump() {
+      if (!activeStill()) return;
+      while (active < concurrency) {
+        var ranked = candidates();
+        if (!ranked.length) return;
+        startJob(ranked[0].job);
+      }
+    }
+
+    function scheduleRefresh() {
+      if (stopped || frameId !== null) return;
+      frameId = frame.request(function () {
+        frameId = null;
+        pump();
+      });
+    }
+
+    function onViewportChange() {
+      scheduleRefresh();
+    }
+
+    function start() {
+      if (stopped) return api;
+      if (opts.win && opts.win.addEventListener) {
+        opts.win.addEventListener('resize', onViewportChange);
+      }
+      if (opts.scrollTarget && opts.scrollTarget.addEventListener) {
+        opts.scrollTarget.addEventListener('scroll', onViewportChange, { passive: true });
+      }
+      if (opts.observeTarget && typeof ResizeObserver === 'function') {
+        try {
+          observer = new ResizeObserver(onViewportChange);
+          observer.observe(opts.observeTarget);
+          if (opts.scrollTarget && opts.scrollTarget !== opts.observeTarget) {
+            observer.observe(opts.scrollTarget);
+          }
+        } catch (e) {
+          observer = null;
+        }
+      }
+      pump();
+      return api;
+    }
+
+    function stop() {
+      if (stopped) return api;
+      stopped = true;
+      if (frameId !== null) {
+        try { frame.cancel(frameId); } catch (e) { /* ignore */ }
+        frameId = null;
+      }
+      if (opts.win && opts.win.removeEventListener) {
+        opts.win.removeEventListener('resize', onViewportChange);
+      }
+      if (opts.scrollTarget && opts.scrollTarget.removeEventListener) {
+        opts.scrollTarget.removeEventListener('scroll', onViewportChange);
+      }
+      if (observer) {
+        try { observer.disconnect(); } catch (e) { /* ignore */ }
+        observer = null;
+      }
+      if (controller) {
+        try { controller.abort(); } catch (e) { /* ignore */ }
+      }
+      for (var i = 0; i < jobs.length; i += 1) {
+        if (jobs[i].state === 'pending' || jobs[i].state === 'active') jobs[i].state = 'stopped';
+      }
+      active = 0;
+      return api;
+    }
+
+    function refreshNow() {
+      if (!stopped) pump();
+    }
+
+    function stats() {
+      var counts = { pending: 0, active: 0, done: 0, failed: 0, stale: 0, stopped: 0 };
+      for (var i = 0; i < jobs.length; i += 1) {
+        if (counts[jobs[i].state] != null) counts[jobs[i].state] += 1;
+      }
+      counts.inFlight = active;
+      return counts;
+    }
+
+    var api = {
+      start: start,
+      stop: stop,
+      refreshNow: refreshNow,
+      stats: stats,
+    };
+    return api;
+  }
+
+  // Test seam: Node loads this file to exercise the scheduler above. Browsers
+  // never define module.exports, so the shipped behaviour is unchanged.
+  if (typeof module === 'object' && module && module.exports) {
+    module.exports = { createMediaScheduler: createMediaScheduler };
+    return;
+  }
+
   var root = document.documentElement;
   if (!root || root.getAttribute('data-ca-encrypted') !== '1') return;
 
@@ -264,42 +516,176 @@
     blobUrls.clear();
   }
 
-  async function hydrateMedia(bodyEl, signal, myEpoch, renderEpoch, token) {
-    var nodes = bodyEl.querySelectorAll('img[data-ca-src], a[data-ca-href]');
-    for (var i = 0; i < nodes.length; i += 1) {
-      if (!stillValid(myEpoch, renderEpoch) || token !== bodyToken) return;
-      var node = nodes[i];
-      var rel = node.getAttribute('data-ca-src') || node.getAttribute('data-ca-href');
-      var mime = node.getAttribute('data-ca-mime') || '';
-      try {
-        if (!/^image\/(png|jpeg|webp|gif|svg\+xml|avif|bmp|x-icon)$/.test(mime)) throw fail('bad mime');
-        var oid = oidOf(rel);
-        var bytes = await fetchBytes(rel, MAX_IMAGE_BYTES, signal);
-        var plain = await decryptObject(bytes, 'image', oid);
-        if (!stillValid(myEpoch, renderEpoch) || token !== bodyToken) return;
-        var url = URL.createObjectURL(new Blob([plain], { type: mime }));
-        blobUrls.add(url);
-        if (node.tagName === 'IMG') {
-          node.src = url;
-        } else {
-          node.href = url;
-          node.target = '_blank';
-          node.rel = 'noopener noreferrer';
-          node.removeAttribute('data-ca-href');
-        }
-      } catch (e) {
-        if (!stillValid(myEpoch, renderEpoch) || token !== bodyToken) return;
-        if (node.tagName === 'IMG') {
-          var placeholder = document.createElement('span');
-          placeholder.className = 'img-missing';
-          placeholder.textContent = '[图片解密失败]';
-          if (node.parentNode) node.parentNode.replaceChild(placeholder, node);
-        } else {
-          node.removeAttribute('data-ca-href');
-          node.setAttribute('href', '#');
-        }
-      }
+  var IMAGE_MIME_RE = /^image\/(png|jpeg|webp|gif|svg\+xml|avif|bmp|x-icon)$/;
+  var media = null; // active media scheduler for the current body
+
+  function failMediaNode(node) {
+    if (node.tagName === 'IMG') {
+      var placeholder = document.createElement('span');
+      placeholder.className = 'img-missing';
+      placeholder.textContent = '[图片解密失败]';
+      if (node.parentNode) node.parentNode.replaceChild(placeholder, node);
+    } else {
+      node.removeAttribute('data-ca-href');
+      node.setAttribute('href', '#');
     }
+  }
+
+  // Keep the pending placeholder box until the blob has actually decoded.
+  // Listeners are registered before src is assigned (a cached blob can fire
+  // load synchronously), and the ready marker is only written while the
+  // article/lock token is still current so a late event cannot touch a body
+  // that has already been replaced.
+  function hydrateImage(node, url, stillCurrent) {
+    function cleanup() {
+      node.removeEventListener('load', onLoad);
+      node.removeEventListener('error', onError);
+    }
+    function onLoad() {
+      cleanup();
+      if (!stillCurrent()) return;
+      node.setAttribute('data-ca-ready', '1');
+    }
+    function onError() {
+      cleanup();
+      if (!stillCurrent()) return;
+      failMediaNode(node);
+    }
+    node.addEventListener('load', onLoad, { once: true });
+    node.addEventListener('error', onError, { once: true });
+    node.src = url;
+  }
+
+  function stopMedia() {
+    if (!media) return;
+    try { media.stop(); } catch (e) { /* ignore */ }
+    media = null;
+  }
+
+  async function loadMediaJob(job, jobSignal, myEpoch, renderEpoch, token) {
+    var bytes = await fetchBytes(job.rel, MAX_IMAGE_BYTES, jobSignal);
+    var plain = await decryptObject(bytes, 'image', job.oid);
+    // Do not create (or leak) a blob URL if the article/lock changed while
+    // the ciphertext was in flight.
+    if (!stillValid(myEpoch, renderEpoch) || token !== bodyToken || (jobSignal && jobSignal.aborted)) {
+      throw fail('stale media');
+    }
+    var url = URL.createObjectURL(new Blob([plain], { type: job.mime }));
+    blobUrls.add(url);
+    return url;
+  }
+
+  function startMedia(bodyEl, signal, myEpoch, renderEpoch, token) {
+    stopMedia();
+    if (!stillValid(myEpoch, renderEpoch) || token !== bodyToken) return;
+
+    var nodes = bodyEl.querySelectorAll('img[data-ca-src], a[data-ca-href]');
+    var byKey = Object.create(null);
+    var jobs = [];
+    for (var i = 0; i < nodes.length; i += 1) {
+      var node = nodes[i];
+      var isImage = node.tagName === 'IMG';
+      var rel = node.getAttribute(isImage ? 'data-ca-src' : 'data-ca-href');
+      var mime = node.getAttribute('data-ca-mime') || '';
+      var oid;
+      try {
+        if (!IMAGE_MIME_RE.test(mime)) throw fail('bad mime');
+        oid = oidOf(rel);
+      } catch (e) {
+        // Cheap validation failures are safe to surface immediately; they do
+        // not start a request and must not wait behind the visibility queue.
+        failMediaNode(node);
+        continue;
+      }
+      // Same ciphertext object used twice in one article is fetched once.
+      var key = rel + '\u0000' + mime;
+      var job = byKey[key];
+      if (!job) {
+        job = byKey[key] = {
+          rel: rel,
+          mime: mime,
+          oid: oid,
+          nodes: [],
+          index: jobs.length,
+          state: 'pending',
+        };
+        jobs.push(job);
+      }
+      job.nodes.push(node);
+    }
+    if (!jobs.length) return;
+
+    var pane = bodyEl.closest ? bodyEl.closest('.reader-pane') : null;
+    var frame = window.requestAnimationFrame ? {
+      request: function (fn) { return window.requestAnimationFrame(fn); },
+      cancel: function (id) { window.cancelAnimationFrame(id); },
+    } : undefined;
+
+    if (signal && typeof signal.addEventListener === 'function') {
+      signal.addEventListener('abort', stopMedia, { once: true });
+    }
+
+    function current() {
+      return !signal.aborted && stillValid(myEpoch, renderEpoch) && token === bodyToken;
+    }
+
+    media = createMediaScheduler({
+      jobs: jobs,
+      concurrency: 3,
+      prefetchFactor: 2,
+      win: window,
+      scrollTarget: pane || window,
+      observeTarget: bodyEl,
+      fallbackHeight: window.innerHeight || 0,
+      frame: frame,
+      measure: function (job) {
+        // One ciphertext object can be mounted at several nodes. Report every
+        // occurrence so the scheduler can rank the best one without collapsing
+        // the list into one bounding box.
+        var rects = [];
+        for (var n = 0; n < job.nodes.length; n += 1) {
+          var node = job.nodes[n];
+          if (!node || typeof node.getBoundingClientRect !== 'function') continue;
+          var rect = node.getBoundingClientRect();
+          if (!rect) continue;
+          rects.push({ top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height });
+        }
+        return rects.length ? rects : null;
+      },
+      viewport: function () {
+        if (pane && typeof pane.getBoundingClientRect === 'function') {
+          var rect = pane.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) return { top: rect.top, bottom: rect.bottom };
+          // The pane exists but is hidden (mobile list view). Report it as
+          // unmeasurable so the scheduler pauses; falling back to the window
+          // here would classify every zero-height node as visible.
+          return null;
+        }
+        // No pane at all: the real window viewport is a valid fallback.
+        return { top: 0, bottom: window.innerHeight || 0 };
+      },
+      load: function (job, jobSignal) {
+        return loadMediaJob(job, jobSignal, myEpoch, renderEpoch, token);
+      },
+      apply: function (job, url) {
+        for (var j = 0; j < job.nodes.length; j += 1) {
+          var target = job.nodes[j];
+          if (target.tagName === 'IMG') {
+            hydrateImage(target, url, current);
+          } else {
+            target.href = url;
+            target.target = '_blank';
+            target.rel = 'noopener noreferrer';
+            target.removeAttribute('data-ca-href');
+          }
+        }
+      },
+      fail: function (job) {
+        for (var k = 0; k < job.nodes.length; k += 1) failMediaNode(job.nodes[k]);
+      },
+      isActive: current,
+    });
+    media.start();
   }
 
   function relocateSourceLine(bodyEl) {
@@ -323,6 +709,7 @@
     if (bodyAbort) {
       try { bodyAbort.abort(); } catch (e) { /* ignore */ }
     }
+    stopMedia();
     bodyAbort = new AbortController();
     var signal = bodyAbort.signal;
     revokeBlobUrls();
@@ -338,7 +725,7 @@
       if (!stillValid(myEpoch, renderEpoch) || token !== bodyToken) return;
       bodyEl.innerHTML = decoder.decode(plain);
       relocateSourceLine(bodyEl);
-      await hydrateMedia(bodyEl, signal, myEpoch, renderEpoch, token);
+      startMedia(bodyEl, signal, myEpoch, renderEpoch, token);
     } catch (e) {
       if (!stillValid(myEpoch, renderEpoch) || token !== bodyToken) return;
       bodyEl.innerHTML = '<div class="alert-box alert-warning">正文解密失败或数据被篡改，已停止显示。</div>';
@@ -573,6 +960,7 @@
       try { unlockAbort.abort(); } catch (e) { /* ignore */ }
       unlockAbort = null;
     }
+    stopMedia();
     revokeBlobUrls();
     session = null;
     window.CA_HOOKS = null;
@@ -619,6 +1007,7 @@
   window.addEventListener('unload', function () {
     epoch += 1;
     locked = true;
+    stopMedia();
     revokeBlobUrls();
     session = null;
   });

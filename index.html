@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-F1tsN8NHNxPiDXBJ+9064b9rs8/jUfF8E7JOdaQ4+Ck='; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-yTsCv4mfKY5tyZYVcfZ9g4lJrGfuKDX9D/GTQrxXXrU='; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';">
   <meta name="generator-build-time" content="2026-11-11T08:03:05+08:00">
   <title>内容收藏夹</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2040%2040%22%3E%3Crect%20x%3D%221%22%20y%3D%221%22%20width%3D%2238%22%20height%3D%2238%22%20rx%3D%227%22%20fill%3D%22%23fffefa%22%2F%3E%3Cpath%20d%3D%22M9%204h20a5%205%200%200%201%205%205v22a5%205%200%200%201-5%205H9a3%203%200%200%201-3-3V7a3%203%200%200%201%203-3ZM12%205v30M19%2015h9M19%2021h9%22%20fill%3D%22none%22%20stroke%3D%22%23355d46%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3C%2Fsvg%3E">
@@ -71,6 +71,10 @@
     .tab-badge { font-size: 11px; color: var(--text-tertiary); font-variant-numeric: tabular-nums; }
     .filter-row { display: flex; gap: 10px; }
     .filter-select { flex: 1; min-width: 0; min-height: 44px; height: 44px; border: 1px solid var(--border-light); border-radius: 5px; padding: 0 8px; background: transparent; color: var(--text-muted); font-size: 12px; }
+    .sort-row { display: flex; gap: 8px; margin: 10px 0 4px; }
+    .sort-btn { flex: 1; min-height: 44px; padding: 0 8px; border: 1px solid var(--border-light); border-radius: 5px; background: transparent; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+    .sort-btn:hover { border-color: var(--border-subtle); color: var(--accent); }
+    .sort-btn[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); font-weight: 600; }
     .sidebar-status { min-height: 44px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted); gap: 12px; }
     .reset-link { background: transparent; border: 0; min-height: 44px; padding: 0; color: var(--accent); font-size: 12px; }
     .article-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 24px; scrollbar-width: thin; scrollbar-color: #bfc5b8 transparent; }
@@ -239,7 +243,7 @@
     <!-- Left Sidebar: Controls & List -->
     <aside class="sidebar">
       <div class="sidebar-controls">
-        <div class="browse-heading"><h2>浏览藏文</h2><span>最近归档优先</span></div>
+        <div class="browse-heading"><h2>浏览藏文</h2><span id="browse-sort-hint">最近归档优先</span></div>
         <!-- Search -->
         <div class="search-wrapper">
           <span class="search-icon" aria-hidden="true"></span>
@@ -275,6 +279,12 @@
           <select id="source-filter" class="filter-select" aria-label="按发布方筛选">
             <option value="all">全部发布方</option>
           </select>
+        </div>
+
+        <!-- Sort Mode -->
+        <div class="sort-row" role="group" aria-label="排序方式">
+          <button type="button" class="sort-btn" id="sort-archived" data-sort="archived" aria-pressed="true">最近归档</button>
+          <button type="button" class="sort-btn" id="sort-published" data-sort="published" aria-pressed="false">最近发布</button>
         </div>
 
         <!-- Status Summary -->
@@ -316,6 +326,244 @@
 
   <!-- Offline Application Logic -->
   <script>
+    /* CA-SORT-MODULE-BEGIN */
+    (function () {
+      'use strict';
+
+      var MODES = ['archived', 'published'];
+      var DEFAULT_MODE = 'archived';
+      var STORAGE_KEY = 'ca.reader.sort';
+      var DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+      var DATETIME_RE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?\s*(Z|[+-]\d{2}:?\d{2})?$/;
+      var SORT_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?Z)?$/;
+      // Naive legacy timestamps came from common.iso(), which writes +08:00.
+      var ARCHIVE_OFFSET_MINUTES = 480;
+
+      function normalizeMode(value) {
+        for (var i = 0; i < MODES.length; i += 1) {
+          if (MODES[i] === value) return value;
+        }
+        return null;
+      }
+
+      function pad2(value) {
+        return (value < 10 ? '0' : '') + value;
+      }
+
+      function pad4(value) {
+        var text = String(value);
+        while (text.length < 4) text = '0' + text;
+        return text;
+      }
+
+      function padNanos(value) {
+        var text = String(value);
+        while (text.length < 9) text = '0' + text;
+        return text;
+      }
+
+      // Date.UTC maps years 0..99 to 1900..1999; setUTCFullYear keeps the
+      // literal four-digit year. Returns null for impossible calendar fields.
+      function utcMs(year, month, day, hour, minute, second) {
+        if (year < 1 || year > 9999) return null;
+        var d = new Date(0);
+        d.setUTCFullYear(year, month - 1, day);
+        d.setUTCHours(hour, minute, second, 0);
+        if (d.getUTCFullYear() !== year || d.getUTCMonth() !== month - 1 ||
+            d.getUTCDate() !== day || d.getUTCHours() !== hour ||
+            d.getUTCMinutes() !== minute || d.getUTCSeconds() !== second) return null;
+        return d.getTime();
+      }
+
+      // Canonical UTC string: whole seconds keep their compact shape, any
+      // fraction is padded to nine digits so equal instants round-trip.
+      function utcIso(ms, nanos) {
+        if (!isFinite(ms)) return '';
+        var d = new Date(ms);
+        var year = d.getUTCFullYear();
+        if (year < 1 || year > 9999) return '';
+        var text = pad4(year) + '-' + pad2(d.getUTCMonth() + 1) + '-' + pad2(d.getUTCDate()) +
+          'T' + pad2(d.getUTCHours()) + ':' + pad2(d.getUTCMinutes()) + ':' +
+          pad2(d.getUTCSeconds());
+        if (nanos) text += '.' + padNanos(nanos);
+        return text + 'Z';
+      }
+
+      // Returns a UTC-sortable key, or '' when the value is absent/invalid.
+      // Date-only input keeps date-only precision; offsets are normalised so
+      // catalogs written in different timezones compare correctly. Malformed
+      // offsets (minutes > 59, hours > 23) and conversions outside years
+      // 0001..9999 are invalid rather than silently shifted.
+      function normalizeTimestamp(value) {
+        if (typeof value !== 'string') return '';
+        var text = value.trim();
+        if (!text) return '';
+        if (DATE_ONLY_RE.test(text)) {
+          var parts = text.split('-');
+          if (utcMs(+parts[0], +parts[1], +parts[2], 0, 0, 0) === null) return '';
+          return text;
+        }
+        var m = DATETIME_RE.exec(text);
+        if (!m) return '';
+        var year = +m[1];
+        var month = +m[2];
+        var date = +m[3];
+        var hour = +m[4];
+        var minute = +m[5];
+        var second = +(m[6] || 0);
+        if (month < 1 || month > 12 || date < 1 || date > 31 ||
+            hour > 23 || minute > 59 || second > 59) return '';
+        var base = utcMs(year, month, date, hour, minute, second);
+        if (base === null) return '';
+        var offset = m[8];
+        var offsetMinutes = ARCHIVE_OFFSET_MINUTES;
+        if (offset === 'Z') {
+          offsetMinutes = 0;
+        } else if (offset) {
+          var digits = offset.slice(1).replace(':', '');
+          var offsetHours = parseInt(digits.slice(0, 2), 10);
+          var offsetMins = parseInt(digits.slice(2, 4) || '0', 10);
+          if (!(offsetHours <= 23) || !(offsetMins <= 59)) return '';
+          offsetMinutes = (offset.charAt(0) === '-' ? -1 : 1) * (offsetHours * 60 + offsetMins);
+        }
+        var fraction = m[7] || '';
+        var nanos = fraction ? parseInt((fraction + '000000000').slice(0, 9), 10) : 0;
+        return utcIso(base - offsetMinutes * 60000, nanos);
+      }
+
+      // Split an exported key into comparable parts. Date-only values rank
+      // below an equal-day timestamp, preserving their historical ordering.
+      function instantParts(value) {
+        if (typeof value !== 'string' || !value) return null;
+        var m = SORT_KEY_RE.exec(value);
+        if (!m) return null;
+        var hasTime = m[4] !== undefined;
+        var hour = hasTime ? +m[4] : 0;
+        var minute = hasTime ? +m[5] : 0;
+        var second = hasTime ? +m[6] : 0;
+        var ms = utcMs(+m[1], +m[2], +m[3], hour, minute, second);
+        if (ms === null) return null;
+        var fraction = m[7] || '';
+        var nanos = fraction ? parseInt((fraction + '000000000').slice(0, 9), 10) : 0;
+        return { ms: ms, nanos: nanos, precision: hasTime ? 1 : 0 };
+      }
+
+      function publishedKey(article) {
+        if (!article || typeof article !== 'object') return '';
+        if (article.published_unknown) return '';
+        return normalizeTimestamp(article.published_sort) ||
+          normalizeTimestamp(article.published);
+      }
+
+      function archivedKey(article) {
+        if (!article || typeof article !== 'object') return '';
+        return normalizeTimestamp(article.archived_sort) ||
+          normalizeTimestamp(article.archived);
+      }
+
+      function idText(article) {
+        var value = article && article.id;
+        return typeof value === 'string' ? value : (value == null ? '' : String(value));
+      }
+
+      function compareId(a, b) {
+        var left = idText(a);
+        var right = idText(b);
+        if (left === right) return 0;
+        return left < right ? -1 : 1;
+      }
+
+      // Newest first; unknown/empty keys always sort after known ones.
+      function compareKnownDesc(a, b) {
+        if (a === b) return 0;
+        if (!a) return 1;
+        if (!b) return -1;
+        var left = instantParts(a);
+        var right = instantParts(b);
+        if (left && right) {
+          if (left.ms !== right.ms) return left.ms > right.ms ? -1 : 1;
+          if (left.nanos !== right.nanos) return left.nanos > right.nanos ? -1 : 1;
+          if (left.precision !== right.precision) return left.precision > right.precision ? -1 : 1;
+          return 0;
+        }
+        return a < b ? 1 : -1;
+      }
+
+      function compareArchived(a, b) {
+        var result = compareKnownDesc(archivedKey(a), archivedKey(b));
+        if (result) return result;
+        result = compareKnownDesc(publishedKey(a), publishedKey(b));
+        if (result) return result;
+        return compareId(a, b);
+      }
+
+      function comparePublished(a, b) {
+        var result = compareKnownDesc(publishedKey(a), publishedKey(b));
+        if (result) return result;
+        result = compareKnownDesc(archivedKey(a), archivedKey(b));
+        if (result) return result;
+        return compareId(a, b);
+      }
+
+      function sortArticles(list, mode) {
+        var selected = normalizeMode(mode) || DEFAULT_MODE;
+        var copy = Array.isArray(list) ? list.slice() : [];
+        copy.sort(selected === 'published' ? comparePublished : compareArchived);
+        return copy;
+      }
+
+      // Only the validated mode name is ever stored. Storage can be missing,
+      // disabled (SecurityError) or full (QuotaExceededError); sorting must
+      // keep working in memory in every case.
+      function storage() {
+        try {
+          var store = window.localStorage;
+          if (!store || typeof store.getItem !== 'function' ||
+              typeof store.setItem !== 'function') return null;
+          return store;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function readMode() {
+        var store = storage();
+        if (!store) return DEFAULT_MODE;
+        try {
+          return normalizeMode(store.getItem(STORAGE_KEY)) || DEFAULT_MODE;
+        } catch (e) {
+          return DEFAULT_MODE;
+        }
+      }
+
+      function writeMode(mode) {
+        var clean = normalizeMode(mode);
+        if (!clean) return false;
+        var store = storage();
+        if (!store) return false;
+        try {
+          store.setItem(STORAGE_KEY, clean);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      window.CAReaderSort = {
+        MODES: MODES,
+        DEFAULT_MODE: DEFAULT_MODE,
+        STORAGE_KEY: STORAGE_KEY,
+        normalizeMode: normalizeMode,
+        normalizeTimestamp: normalizeTimestamp,
+        publishedKey: publishedKey,
+        archivedKey: archivedKey,
+        sortArticles: sortArticles,
+        readMode: readMode,
+        writeMode: writeMode,
+      };
+    })();
+    /* CA-SORT-MODULE-END */
+
     (function() {
       const encryptedMode = document.documentElement.getAttribute('data-ca-encrypted') === '1';
       // Parse embedded data (offline build). Encrypted entries embed [] and are
@@ -351,6 +599,7 @@
         source: 'all',
         query: '',
         selectedId: null,
+        sort: 'archived',
       };
 
       // Elements
@@ -368,6 +617,9 @@
       const tabManual = document.getElementById('tab-manual');
       const tabAuto = document.getElementById('tab-auto');
       const totalCountBadge = document.getElementById('total-count-badge');
+      const sortArchivedBtn = document.getElementById('sort-archived');
+      const sortPublishedBtn = document.getElementById('sort-published');
+      const sortHint = document.getElementById('browse-sort-hint');
 
       // Helper: Escape HTML
       function escapeHtml(str) {
@@ -450,9 +702,62 @@
         });
       }
 
+      // Sort helpers. The ordering itself lives in CAReaderSort so the exact
+      // same code runs in the offline page, the encrypted page and tests.
+      function readSortPreference() {
+        try {
+          if (window.CAReaderSort && typeof window.CAReaderSort.readMode === 'function') {
+            return window.CAReaderSort.readMode();
+          }
+        } catch (e) {
+          // A broken preference must never stop the reader from loading.
+        }
+        return 'archived';
+      }
+
+      function orderedArticles(list) {
+        try {
+          if (window.CAReaderSort && typeof window.CAReaderSort.sortArticles === 'function') {
+            return window.CAReaderSort.sortArticles(list, state.sort);
+          }
+        } catch (e) {
+          // Fall through to the incoming order.
+        }
+        return Array.isArray(list) ? list.slice() : [];
+      }
+
+      function syncSortControls() {
+        const isPublished = state.sort === 'published';
+        sortArchivedBtn.classList.toggle('active', !isPublished);
+        sortPublishedBtn.classList.toggle('active', isPublished);
+        sortArchivedBtn.setAttribute('aria-pressed', String(!isPublished));
+        sortPublishedBtn.setAttribute('aria-pressed', String(isPublished));
+        if (sortHint) sortHint.textContent = isPublished ? '最近发布优先' : '最近归档优先';
+      }
+
+      function setSortMode(mode) {
+        const next = window.CAReaderSort && typeof window.CAReaderSort.normalizeMode === 'function'
+          ? window.CAReaderSort.normalizeMode(mode)
+          : null;
+        if (!next || next === state.sort) return;
+        state.sort = next;
+        syncSortControls();
+        try {
+          if (window.CAReaderSort && typeof window.CAReaderSort.writeMode === 'function') {
+            window.CAReaderSort.writeMode(next);
+          }
+        } catch (e) {
+          // The in-memory order still changed; only persistence failed.
+        }
+        // Sort-only action: keep the current filters, selection, body and scroll.
+        renderList({ preserveScroll: true });
+      }
+
       // Render the article list
-      function renderList() {
-        const filtered = filterArticles();
+      function renderList(options) {
+        const preserveScroll = Boolean(options && options.preserveScroll);
+        const previousScroll = preserveScroll ? articleListEl.scrollTop : 0;
+        const filtered = orderedArticles(filterArticles());
         const hasFilters = state.tab !== 'all' || state.category !== 'all' || state.source !== 'all' || state.query.trim() !== '';
         resetFiltersBtn.style.display = hasFilters ? 'inline-block' : 'none';
         filteredStatus.textContent = `显示 ${filtered.length} / ${articles.length} 篇`;
@@ -506,6 +811,7 @@
         }).join('');
 
         articleListEl.innerHTML = cardsHtml;
+        if (preserveScroll) articleListEl.scrollTop = previousScroll;
 
         // Attach Card Click Events
         const cards = articleListEl.querySelectorAll('.article-card');
@@ -744,6 +1050,11 @@
         renderList();
       });
 
+      // Sort mode: archived (default) or published. Re-sorts the current
+      // filtered view only; search, filters and the open article stay as-is.
+      sortArchivedBtn.addEventListener('click', () => setSortMode('archived'));
+      sortPublishedBtn.addEventListener('click', () => setSortMode('published'));
+
       resetFiltersBtn.addEventListener('click', resetAllFilters);
 
       const focusButton = document.getElementById('focus-reading-btn');
@@ -824,7 +1135,9 @@
         renderEpoch += 1;
         articles = Array.isArray(nextArticles) ? nextArticles : [];
         labels = (nextLabels && typeof nextLabels === 'object') ? nextLabels : {};
+        state.sort = readSortPreference();
         resetUiState();
+        syncSortControls();
         updateCollectionCounts();
         initFilterOptions();
 
@@ -844,7 +1157,8 @@
             appLayout.classList.add('mobile-reading');
           }
         } else if (articles.length > 0 && window.innerWidth > 820) {
-          state.selectedId = articles[0].id;
+          const ordered = orderedArticles(articles);
+          state.selectedId = ordered.length ? ordered[0].id : articles[0].id;
         }
 
         renderList();
